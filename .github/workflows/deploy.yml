@@ -1,4 +1,4 @@
-name: Deploy Website to DigitalOcean
+name: Deploy WWW Folder to DigitalOcean
 
 on:
   push:
@@ -11,14 +11,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Copy files to Droplet via SCP
+      - name: Copy WWW folder contents to Droplet via SCP
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          source: "www" # Copies everything in your repository root
+          source: "www/*"
           target: "/var/www/html"
+          strip_components: 1
 
       - name: Fix Permissions and Reload Apache
         uses: appleboy/ssh-action@v1.2.0
