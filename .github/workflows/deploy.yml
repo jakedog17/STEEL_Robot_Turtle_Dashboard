@@ -1,8 +1,5 @@
 name: CI/CD Pipeline
 
-# Public key exists in server at /.ssh/config
-# Private key exists in GitHub secrets
-
 on:
     push:
         branches:
@@ -13,47 +10,72 @@ on:
     workflow_dispatch:
 
 jobs:
-    # Build checks if the server even works, and builds correctly
     build:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
-            
 
-    # Once this is done, we proceed to build it on the server.
+            - name: Set up Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'npm'
+
+            - name: Install dependencies and build
+              run: |
+                  npm install
+                  npm run build
+
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dist-files
+                  path: dist/
+
     deploy:
         needs: build
-
-        # Dont deploy unmerged pull requests
         if: github.event_name != 'pull_request'
         runs-on: ubuntu-latest
         timeout-minutes: 15
-
-        # Two pushes won't deploy on top of each other
         concurrency: deploy
         steps:
-            - name: Deploy to DigitalOcean Droplet
-              env:
-                  SSH_HOST: ${{ secrets.SSH_HOST }}
-                  SSH_KEY: ${{ secrets.SSH_KEY }}  # PRIVATE KEY
-                  SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
-              run: |
-                  mkdir -p ~/.ssh
-                  echo "$SSH_KEY" > ~/.ssh/deploy_key
-                  chmod 600 ~/.ssh/deploy_key
-                  ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=20 -o BatchMode=yes ${SSH_USERNAME}@${SSH_HOST} << 'EOF'
+            - name: Download build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: dist-files
+                  path: dist/
 
-                  set -e
-                  cd /var/www/html
-                  git fetch origin
-                  git checkout ${{ github.ref_name }}
-                  git pull origin ${{ github.ref_name }}
+            - name: Deploy files to Droplet via SSH & SCP
+              uses: appleboy/ssh-action@v1.2.0
+              with:
+                  host: ${{ secrets.SSH_HOST }}
+                  username: ${{ secrets.SSH_USERNAME }}
+                  key: ${{ secrets.SSH_KEY }}
+                  script: |
+                      set -e
+                      mkdir -p /var/www/html
+                      rm -rf /var/www/html/*
 
-                  rm -rf /var/www/html/*
-                  cp -r dist/* /var/www/html/
+            - name: Copy new build files to server
+              uses: appleboy/scp-action@v1
+              with:
+                  host: ${{ secrets.SSH_HOST }}
+                  username: ${{ secrets.SSH_USERNAME }}
+                  key: ${{ secrets.SSH_KEY }}
+                  source: "dist/*"
+                  target: "/var/www/html/"
+                  strip_components: 1
 
-                  systemctl reload apache2
-
-
-
+            - name: Fix Permissions and Reload Apache
+              uses: appleboy/ssh-action@v1.2.0
+              with:
+                  host: ${{ secrets.SSH_HOST }}
+                  username: ${{ secrets.SSH_USERNAME }}
+                  key: ${{ secrets.SSH_KEY }}
+                  script: |
+                      set -e
+                      sudo chown -R www-data:www-data /var/www/html
+                      sudo find /var/www/html -type d -exec chmod 755 {} \;
+                      sudo find /var/www/html -type f -exec chmod 644 {} \;
+                      sudo systemctl reload apache2
