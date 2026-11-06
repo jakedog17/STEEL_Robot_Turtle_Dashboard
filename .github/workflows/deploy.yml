@@ -1,40 +1,59 @@
-name: Deploy WWW Folder to DigitalOcean
+name: CI/CD Pipeline
+
+# Public key exists in server at /.ssh/config
+# Private key exists in GitHub secrets
 
 on:
-  push:
-    branches: [ main ]
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+    workflow_dispatch:
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Copy www folder to Droplet via SCP
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "www"
-          target: "/var/www/html"
-
-      - name: Move Files, Fix Permissions, and Reload Apache
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            # 1. Move files out of the temporary nested www folder into the root html directory
-            sudo cp -r /var/www/html/www/* /var/www/html/
-            sudo rm -rf /var/www/html/www
+    # Build checks if the server even works, and builds correctly
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
             
-            # 2. Fix permissions so Apache (www-data) can read the files
-            sudo chown -R www-data:www-data /var/www/html
-            sudo find /var/www/html -type d -exec chmod 755 {} \;
-            sudo find /var/www/html -type f -exec chmod 644 {} \;
-            
-            # 3. Reload Apache
-            sudo systemctl reload apache2
+
+    # Once this is done, we proceed to build it on the server.
+    deploy:
+        needs: build
+
+        # Dont deploy unmerged pull requests
+        if: github.event_name != 'pull_request'
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+
+        # Two pushes won't deploy on top of each other
+        concurrency: deploy
+        steps:
+            - name: Deploy to DigitalOcean Droplet
+              env:
+                  SSH_HOST: ${{ secrets.SSH_HOST }}
+                  SSH_KEY: ${{ secrets.SSH_KEY }}  # PRIVATE KEY
+                  SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+              run: |
+                  mkdir -p ~/.ssh
+                  echo "$SSH_KEY" > ~/.ssh/deploy_key
+                  chmod 600 ~/.ssh/deploy_key
+                  ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=20 -o BatchMode=yes ${SSH_USERNAME}@${SSH_HOST} << 'EOF'
+
+                  set -e
+                  cd /var/www/html
+                  git fetch origin
+                  git checkout ${{ github.ref_name }}
+                  git pull origin ${{ github.ref_name }}
+
+                  rm -rf /var/www/html/*
+                  cp -r dist/* /var/www/html/
+
+                  systemctl reload apache2
+
+
+
