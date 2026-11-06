@@ -26,14 +26,14 @@ jobs:
       - name: Sync www to Droplet
         run: |
           rsync -avz --delete \
-            ./www/html/ \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/html/
+            ./www/ \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/
 
       - name: Fix Permissions
         run: |
           ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
-            sudo chown -R www-data:www-data /var/www/html &&
-            sudo find /var/www/html -type d -exec chmod 755 {} \; &&
-            sudo find /var/www/html -type f -exec chmod 644 {} \; &&
+            sudo chown -R www-data:www-data /var/www &&
+            sudo find /var/www -type d -exec chmod 755 {} \; &&
+            sudo find /var/www -type f -exec chmod 644 {} \; &&
             sudo systemctl reload apache2
           "
