@@ -2,37 +2,40 @@ name: Deploy LAMP Stack
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Copy www files to Droplet via SCP
+      - name: Upload Files
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          source: "www/*"
-          target: "/var/www/html"
+          source: "www/"
+          target: "/tmp/deploy"
 
-      - name: Fix Permissions and Reload Apache
+      - name: Deploy on Server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # Set proper ownership for Apache
+            sudo rsync -av --delete /tmp/deploy/www/ /var/www/html/
+
             sudo chown -R www-data:www-data /var/www/html
-            
-            # Set secure file and folder permissions
             sudo find /var/www/html -type d -exec chmod 755 {} \;
             sudo find /var/www/html -type f -exec chmod 644 {} \;
-            
-            # Reload Apache to apply changes
+
+            sudo apache2ctl configtest
             sudo systemctl reload apache2
+
+            rm -rf /tmp/deploy
