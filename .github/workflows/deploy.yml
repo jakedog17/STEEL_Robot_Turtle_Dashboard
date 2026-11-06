@@ -19,15 +19,18 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             # 1. Navigate to your application folder on the Droplet
-            cd /var/www/my-app
+            cd /var/www/html
 
             # 2. Pull the latest code changes from GitHub
             git pull origin main
 
             # 3. Fix permissions so Apache (www-data) can read the new files
-            sudo chown -R www-data:www-data /var/www/my-app
-            sudo find /var/www/my-app -type d -exec chmod 755 {} \;
-            sudo find /var/www/my-app -type f -exec chmod 644 {} \;
+            sudo chown -R www-data:www-data /var/www/html
+            sudo find /var/www/html -type d -exec chmod 755 {} \;
+            sudo find /var/www/html -type f -exec chmod 644 {} \;
+
+
+
 
             # 4. Reload Apache to clear any cached PHP scripts
             sudo systemctl reload apache2
