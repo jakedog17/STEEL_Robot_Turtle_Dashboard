@@ -10,38 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Test SSH
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: whoami
-      - name: Upload Files
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "www/"
-          target: "/tmp/deploy"
 
-      - name: Deploy on Server
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            sudo rsync -av --delete /tmp/deploy/www/ /var/www/html/
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
 
-            sudo chown -R www-data:www-data /var/www/html
-            sudo find /var/www/html -type d -exec chmod 755 {} \;
-            sudo find /var/www/html -type f -exec chmod 644 {} \;
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-            sudo apache2ctl configtest
+      - name: Sync www to Droplet
+        run: |
+          rsync -avz --delete \
+            ./www/ \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/html/
+
+      - name: Fix Permissions
+        run: |
+          ssh ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} "
+            sudo chown -R www-data:www-data /var/www/html &&
+            sudo find /var/www/html -type d -exec chmod 755 {} \; &&
+            sudo find /var/www/html -type f -exec chmod 644 {} \; &&
             sudo systemctl reload apache2
-
-            rm -rf /tmp/deploy
+          "
