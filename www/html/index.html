@@ -90,7 +90,9 @@
 
         try {
 
-            const response = await fetch("const urlBase = 'http://67.205.143.129/api/getStatus.php", {
+            const urlBase = 'http://67.205.143.129/api/';
+
+            const response = await fetch(urlBase + 'getStatus.php', {   
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
