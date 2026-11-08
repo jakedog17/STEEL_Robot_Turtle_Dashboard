@@ -10,7 +10,7 @@
     $conn = new mysqli(
         "localhost",
         "TheBeast",
-        getenv("DB_PASSWORD"),
+        "WeLoveSTEELTurtle",
         "STEEL_Turtle"
     );
 
