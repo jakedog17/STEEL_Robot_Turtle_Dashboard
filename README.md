@@ -16,13 +16,15 @@ Here are the steps to create the database, tables, and working data.
 
 1. Create database
 
-create database COP4331;
-use COP4331;
+create database STEEL_Turtle;
+use STEEL_Turtle;
 
 3. Create tables
 
 
-- CREATE TABLE `STEEL_Project`.`UserBoards`
+
+
+- CREATE TABLE `STEEL_Turtle`.`UserBoards`
 (
 `ID` INT NOT NULL AUTO_INCREMENT ,
 `boardName` VARCHAR(50) NOT NULL DEFAULT '' ,
@@ -31,28 +33,34 @@ use COP4331;
 PRIMARY KEY (`ID`)
 ) ENGINE = InnoDB;
 
-- CREATE TABLE `STEEL_Project`.`Motors`
+- CREATE TABLE `STEEL_Turtle`.`Motors`
 (
 `ID` INT NOT NULL AUTO_INCREMENT ,
 `MotorName` VARCHAR(50) NOT NULL DEFAULT '' ,
-`Speed` VARCHAR(50) NOT NULL DEFAULT '' ,
-`Pin1` VARCHAR(50) NOT NULL DEFAULT '' ,
-`Pin2` VARCHAR(50) NOT NULL DEFAULT '' ,
+`Speed` INT NOT NULL ,
+`Direction` INT NOT NULL ,
+`boardID` INT NOT NULL DEFAULT '0' ,
+PRIMARY KEY (`ID`)
+) ENGINE = InnoDB;
+
+- CREATE TABLE `STEEL_Turtle`.`Servos`
+(
+`ID` INT NOT NULL AUTO_INCREMENT ,
+`ServoName` VARCHAR(50) NOT NULL DEFAULT '' ,
+`Angle` INT NOT NULL ,
 `boardID` INT NOT NULL DEFAULT '0' ,
 PRIMARY KEY (`ID`)
 ) ENGINE = InnoDB;
 
 
 
+
+
   3. Populate working data rows
-USE COP4331;
-insert into Users (FirstName,LastName,Login,Password) VALUES
-('Aashish','Yadavally','AYadavally','COP4331');
-insert into Users (FirstName,LastName,Login,Password) VALUES ('Sam','Hill','SamH','Test');
-insert into Users (FirstName,LastName,Login,Password) VALUES
-('Aashish','Yadavally','AYadavally','5832a71366768098cceb7095efb774f2');
-insert into Users (FirstName,LastName,Login,Password) VALUES
-('Sam','Hill','SamH','0cbc6611f5540bd0809a388dc95a615b');
+USE STEEL_Turtle;
+insert into UserBoards (boardName,Login,Password) VALUES
+('STEEL_Turtle_Robot','STEEL_Turtle','12345678');
+
 insert into Colors (Name,UserID) VALUES ('Blue',1);
 insert into Colors (Name,UserID) VALUES ('White',1);
 
@@ -60,7 +68,7 @@ insert into Colors (Name,UserID) VALUES ('White',1);
 
 
 Test with:
-select * from Users;
+select * from UserBoards;
 select * from Colors;
 also:
 select * from Colors where UserID=1;
