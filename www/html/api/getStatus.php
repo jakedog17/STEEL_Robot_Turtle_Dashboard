@@ -80,6 +80,30 @@
                 $row["Angle"];
         }
 
+        // Retrieve Controller status
+
+        $controllerStmt = $conn->prepare(
+            "SELECT Connected FROM Controllers WHERE boardID=?"
+        );
+
+        $controllerStmt->bind_param("i", $boardID);
+
+        $controllerStmt->execute();
+
+        $controllerResult = $controllerStmt->get_result();
+
+        if ($controllerRow = $controllerResult->fetch_assoc()) {
+
+            $returnJson["Controller"]["Connected"] =
+                (bool)$controllerRow["Connected"];
+
+        } else {
+
+            $returnJson["Controller"]["Connected"] = false;
+        }
+
+        $controllerStmt->close();
+
         // Send JSON response
         sendResultInfoAsJson(json_encode($returnJson));
 

@@ -160,6 +160,29 @@
 
         $servoStmt->close();
 
+		// Process Controller
+
+		// Process Controller
+
+		$connected = !empty($inData["Controller"]["Connected"]) ? 1 : 0;
+
+		$controllerStmt = $conn->prepare(
+			"INSERT INTO Controllers (boardID, Connected)
+			VALUES (?, ?)
+			ON DUPLICATE KEY UPDATE Connected=?"
+		);
+
+		$controllerStmt->bind_param(
+			"iii",
+			$boardID,
+			$connected,
+			$connected
+		);
+
+		$controllerStmt->execute();
+		$controllerStmt->close();
+
+
         sendResultInfoAsJson(json_encode([
             "success" => true,
             "error" => ""

@@ -1,59 +1,156 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>STEEL Turtle Dashboard</title>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: Arial, sans-serif;
             background: #20252b;
             color: white;
-            padding: 30px;
-        }
-
-        h1, h2 {
-            color: #55c2ff;
+            padding: 20px;
+            margin: 0;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 950px;
             margin: auto;
         }
 
-        .device {
-            background: #303943;
-            padding: 15px;
-            margin: 12px 0;
-            border-radius: 8px;
-        }
-
-        .device h3 {
+        h1 {
             color: #55c2ff;
+            text-align: center;
         }
 
-        .status {
-            color: #7ee787;
+        h2 {
+            color: #55c2ff;
+            border-bottom: 1px solid #46515d;
+            padding-bottom: 8px;
+        }
+
+        .login, .section {
+            background: #303943;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 5px;
+            background: #20252b;
+            color: white;
         }
 
         button {
-            padding: 10px 18px;
+            padding: 12px 20px;
             background: #1685c5;
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin: 5px 5px 5px 0;
         }
 
         button:hover {
             background: #08649b;
         }
 
+        button:disabled {
+            opacity: 0.5;
+            cursor: wait;
+        }
+
+        .device-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+
+        .device {
+            background: #20252b;
+            padding: 18px;
+            border-radius: 8px;
+            border-left: 4px solid #55c2ff;
+        }
+
+        .device h3 {
+            color: #55c2ff;
+            margin-top: 0;
+        }
+
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #7ee787;
+        }
+
+        .controller-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .status-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: gray;
+        }
+
+        .connected {
+            color: #7ee787;
+        }
+
+        .connected .status-dot {
+            background: #7ee787;
+            box-shadow: 0 0 10px #7ee787;
+        }
+
+        .disconnected {
+            color: #ff7777;
+        }
+
+        .disconnected .status-dot {
+            background: #ff7777;
+            box-shadow: 0 0 10px #ff7777;
+        }
+
         #error {
             color: #ff7777;
+            margin-top: 12px;
+        }
+
+        #lastUpdated {
+            color: #aebbc8;
+            font-size: 13px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 500px) {
+            body {
+                padding: 10px;
+            }
+
+            .section, .login {
+                padding: 15px;
+            }
         }
     </style>
 </head>
@@ -64,72 +161,257 @@
 
     <h1>STEEL Turtle Dashboard</h1>
 
-    <button onclick="getStatus()">Refresh Status</button>
+    <!-- LOGIN -->
+    <div class="login" id="loginSection">
 
-    <p id="error"></p>
+        <h2>Board Login</h2>
 
-    <h2>Motors</h2>
-    <div id="motors">
-        Loading motors...
+        <input
+            type="text"
+            id="login"
+            placeholder="Board Login"
+            autocomplete="username"
+        >
+
+        <input
+            type="password"
+            id="password"
+            placeholder="Board Password"
+            autocomplete="current-password"
+        >
+
+        <button onclick="connectBoard()">
+            Connect to Board
+        </button>
+
+        <p id="error"></p>
+
     </div>
 
-    <h2>Servos</h2>
-    <div id="servos">
-        Loading servos...
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="hidden">
+
+        <div class="section">
+
+            <h2>Controller Status</h2>
+
+            <div id="controllerStatus"
+                 class="controller-status disconnected">
+
+                <span class="status-dot"></span>
+                <span id="controllerText">Unknown</span>
+
+            </div>
+
+        </div>
+
+
+        <!-- MOTORS -->
+        <div class="section">
+
+            <h2>Motors</h2>
+
+            <div id="motors" class="device-grid">
+                Loading motors...
+            </div>
+
+        </div>
+
+
+        <!-- SERVOS -->
+        <div class="section">
+
+            <h2>Servos</h2>
+
+            <div id="servos" class="device-grid">
+                Loading servos...
+            </div>
+
+        </div>
+
+
+        <!-- REFRESH -->
+        <div class="section">
+
+            <button id="refreshButton" onclick="getStatus()">
+                Refresh Status
+            </button>
+
+            <button onclick="disconnectBoard()">
+                Disconnect
+            </button>
+
+            <p id="lastUpdated">Waiting for update...</p>
+
+            <p id="dashboardError"></p>
+
+        </div>
+
     </div>
 
 </div>
 
+
 <script>
+
+    // ==========================================
+    // CONFIGURATION
+    // ==========================================
+
+    const API_URL =
+        "http://67.205.143.129/api/getStatus.php";
+
+    const REFRESH_INTERVAL = 5000;
+
+    let boardCredentials = null;
+    let refreshTimer = null;
+
+
+    // ==========================================
+    // CONNECT TO BOARD
+    // ==========================================
+
+    async function connectBoard() {
+
+        const login = document.getElementById("login").value;
+        const password = document.getElementById("password").value;
+
+        if (!login || !password) {
+
+            document.getElementById("error").textContent =
+                "Please enter your login and password.";
+
+            return;
+        }
+
+        boardCredentials = {
+            login: login,
+            password: password
+        };
+
+        document.getElementById("error").textContent = "";
+
+        const success = await getStatus();
+
+        if (success) {
+
+            document.getElementById("loginSection")
+                .classList.add("hidden");
+
+            document.getElementById("dashboard")
+                .classList.remove("hidden");
+
+            // Automatically refresh every 5 seconds
+            refreshTimer = setInterval(
+                getStatus,
+                REFRESH_INTERVAL
+            );
+
+        } else {
+
+            boardCredentials = null;
+        }
+    }
+
+
+    // ==========================================
+    // GET BOARD STATUS
+    // ==========================================
 
     async function getStatus() {
 
-        const errorDisplay = document.getElementById("error");
+        if (!boardCredentials) {
+            return false;
+        }
+
+        const errorDisplay =
+            document.getElementById("dashboardError");
+
+        const refreshButton =
+            document.getElementById("refreshButton");
 
         errorDisplay.textContent = "";
 
+        refreshButton.disabled = true;
+
         try {
 
-            const urlBase = 'http://67.205.143.129/api/';
+            const response = await fetch(API_URL, {
 
-            const response = await fetch(urlBase + 'getStatus.php', {   
                 method: "POST",
+
                 headers: {
                     "Content-Type": "application/json"
                 },
+
                 body: JSON.stringify({
-                    "UserBoards": {
-                        "login": "STEEL_Turtle",
-                        "password": "12345678"
+
+                    UserBoards: {
+                        login: boardCredentials.login,
+                        password: boardCredentials.password
                     }
+
                 })
+
             });
 
             if (!response.ok) {
-                throw new Error("HTTP Error: " + response.status);
+
+                throw new Error(
+                    "HTTP Error: " + response.status
+                );
+
             }
 
             const data = await response.json();
 
             if (data.error) {
+
                 throw new Error(data.error);
+
             }
 
+            // Display all board information
             displayMotors(data.Motors || {});
+
             displayServos(data.Servos || {});
+
+            displayController(
+                data.Controller || { Connected: false }
+            );
+
+            // Update timestamp
+            document.getElementById("lastUpdated").textContent =
+                "Last updated: " + new Date().toLocaleTimeString();
+
+            return true;
 
         } catch (error) {
 
             errorDisplay.textContent =
                 "Error loading board status: " + error.message;
 
+            console.error(error);
+
+            return false;
+
+        } finally {
+
+            refreshButton.disabled = false;
+
         }
     }
 
 
+    // ==========================================
+    // DISPLAY MOTORS
+    // ==========================================
+
     function displayMotors(motors) {
 
-        const container = document.getElementById("motors");
+        const container =
+            document.getElementById("motors");
 
         container.innerHTML = "";
 
@@ -142,30 +424,44 @@
             device.className = "device";
 
             const heading = document.createElement("h3");
+
             heading.textContent = motorName;
 
             const speed = document.createElement("p");
+
             speed.textContent = "Speed: " + motor.Speed;
 
+            speed.className = "value";
+
             const direction = document.createElement("p");
-            direction.textContent = "Direction: " + motor.Direction;
+
+            direction.textContent =
+                "Direction: " + motor.Direction;
 
             device.appendChild(heading);
             device.appendChild(speed);
             device.appendChild(direction);
 
             container.appendChild(device);
+
         }
 
         if (Object.keys(motors).length === 0) {
+
             container.textContent = "No motors found.";
+
         }
     }
 
 
+    // ==========================================
+    // DISPLAY SERVOS
+    // ==========================================
+
     function displayServos(servos) {
 
-        const container = document.getElementById("servos");
+        const container =
+            document.getElementById("servos");
 
         container.innerHTML = "";
 
@@ -178,27 +474,91 @@
             device.className = "device";
 
             const heading = document.createElement("h3");
+
             heading.textContent = servoName;
 
             const angle = document.createElement("p");
-            angle.textContent = "Angle: " + servo.Angle + "°";
+
+            angle.textContent =
+                "Angle: " + servo.Angle + "°";
+
+            angle.className = "value";
 
             device.appendChild(heading);
             device.appendChild(angle);
 
             container.appendChild(device);
+
         }
 
         if (Object.keys(servos).length === 0) {
+
             container.textContent = "No servos found.";
+
         }
     }
 
 
-    // Load status when page opens
-    getStatus();
+    // ==========================================
+    // DISPLAY CONTROLLER
+    // ==========================================
+
+    function displayController(controller) {
+
+        const status =
+            document.getElementById("controllerStatus");
+
+        const text =
+            document.getElementById("controllerText");
+
+        if (controller.Connected === true) {
+
+            status.className =
+                "controller-status connected";
+
+            text.textContent = "Connected";
+
+        } else {
+
+            status.className =
+                "controller-status disconnected";
+
+            text.textContent = "Disconnected";
+
+        }
+    }
+
+
+    // ==========================================
+    // DISCONNECT
+    // ==========================================
+
+    function disconnectBoard() {
+
+        if (refreshTimer !== null) {
+
+            clearInterval(refreshTimer);
+
+            refreshTimer = null;
+
+        }
+
+        boardCredentials = null;
+
+        document.getElementById("dashboard")
+            .classList.add("hidden");
+
+        document.getElementById("loginSection")
+            .classList.remove("hidden");
+
+        document.getElementById("password").value = "";
+
+        document.getElementById("error").textContent = "";
+
+    }
 
 </script>
 
 </body>
+
 </html>
