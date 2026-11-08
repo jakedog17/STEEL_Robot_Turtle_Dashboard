@@ -27,8 +27,8 @@
 
     $stmt->bind_param(
         "ss",
-        $boardInfo["login"],
-        $boardInfo["password"]
+        $boardInfo["Login"],
+        $boardInfo["Password"]
     );
 
     $stmt->execute();
